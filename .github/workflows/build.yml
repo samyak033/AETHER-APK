@@ -6,56 +6,61 @@ on:
     branches:
       - main
 
+env:
+  P4A_PREREQUISITES_INSTALL_INTERACTIVE: "0"
+  PYTHONFORANDROID_PREREQUISITES_INSTALL_INTERACTIVE: "0"
+
 jobs:
   build:
     runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
-      - name: Install system dependencies
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Install Linux dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt update
+          sudo apt install -y \
             git zip unzip \
-            openjdk-17-jdk \
-            autoconf automake autopoint \
-            libtool gettext \
+            automake libltdl-dev \
+            libtool \
             pkg-config \
-            zlib1g-dev \
+            build-essential \
+            cmake \
+            autoconf \
+            autopoint \
+            gettext \
             libffi-dev \
             libssl-dev \
             liblzma-dev \
-            build-essential \
-            cmake \
-            rustc cargo
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
+            rustc \
+            cargo
 
       - name: Install Buildozer
         run: |
-          python -m pip install --upgrade pip setuptools wheel
-          python -m pip install buildozer
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade buildozer
 
-      - name: Accept Android SDK licenses
+      - name: Enable Android configuration
         run: |
-          mkdir -p "$HOME/.buildozer/android/platform/android-sdk/licenses"
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
-
-      - name: Install Android SDK packages
-        run: |
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+          sed -i 's/# android.accept_sdk_license = False/android.accept_sdk_license = True/' buildozer.spec
+          sed -i 's/#p4a.branch = master/p4a.branch = develop/' buildozer.spec
 
       - name: Build AETHER APK
         run: |
-          buildozer -v android debug
+          buildozer android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
